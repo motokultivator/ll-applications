@@ -3,7 +3,7 @@
 .globl _start
 .globl printf
 
-.globl ir1
+.globl ir_generic
 .globl get_mstatus
 .globl get_sp
 .globl get_ticks
@@ -51,41 +51,75 @@ addi	sp,sp,64
 
 ivt:
 j _hlt
+nop
 j _hlt
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 j _intr
+nop
 
 _intr:
 pusht
-jal ir1
+csrr a0, mcause
+andi a0, a0, 0x1f
+jal ir_generic
 popt
 mret
 

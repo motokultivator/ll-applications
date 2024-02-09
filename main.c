@@ -6,13 +6,23 @@
 #define LED_PIN 7
 #define P(x) seg(#x, (void*)x)
 
-void ir1() {
-  printf("INT maskA %x : %x : %x\n", CPU_INT_EIP_STATUS_REG, INTR_STATUS_0_REG, get_mstatus());
-  GPIO_STATUS_W1TC = 1 << BTN_PIN;
-  GPIO_STATUS_W1TC = 0;
+void ir_generic(uint32_t e) {
+  printf("INT %d maskA %x : %x : %x\n", e, CPU_INT_EIP_STATUS_REG, INTR_STATUS_0_REG, get_mstatus());
+  GPIO_STATUS_W1TC_REG = 1 << BTN_PIN;
+//  GPIO_STATUS_W1TC = 0;
   // CPU_INT_CLEAR_REG = 4; //int 2
-  // CPU_INT_CLEAR_REG = 0;
-  printf("INT maskB %x : %x : %x\n", CPU_INT_EIP_STATUS_REG, INTR_STATUS_0_REG, get_mstatus());
+  if (e == 5)
+    UART_INT_CLR_REG = 0xffffffff;
+  if (e == 3) {
+    printf("APB_SARADC_INT_RAW_REG : %x\n", APB_SARADC_INT_RAW_REG);
+    APB_SARADC_ONETIME_SAMPLE_REG = 0;
+    APB_SARADC_INT_CLR_REG = 0xFFFFFFFF;
+    CPU_INT_CLEAR_REG = 1 << 3;
+    asm volatile("fence\n");
+    printf("Ocitao sam %d %x\n", APB_SARADC_ADC1_DATA, APB_SARADC_INT_RAW_REG);
+
+  }
+  printf("INT %d maskB %x : %x : %x\n", e, CPU_INT_EIP_STATUS_REG, INTR_STATUS_0_REG, get_mstatus());
 }
 
 void tabla(char* b) {
@@ -60,24 +70,33 @@ void start(uint32_t a0) {
   TRIS = 1 << LED_PIN;
 
   CPU_INT_TYPE_REG = 0;// level 0xffffffff; // edge
-  GPIO_INTERRUPT_PRO_MAP = 2; // kacimo se na dvojku
-  CPU_INT_PRI[2] = 15; // prioritet dvojke
+  INTERRUPT_CORE0_GPIO_INTERRUPT_PRO_MAP_REG = 2; // kacimo se na dvojku
+  INTERRUPT_CORE0_CPU_INT_PRI_n_REG[2] = 15; // prioritet dvojke
+  INTERRUPT_CORE0_CPU_INT_PRI_n_REG[3] = 15; // prio trojke
   CPU_INT_ENABLE_REG = 0xffffffff;//1 << 2;
 
-  PIN_REG[BTN_PIN] = (2 << 7) | (1 << 13); //falling edge trigger
+  PIN_REG[BTN_PIN] = (2 << 7) | (1 << 13); // falling edge trigger
 
   printf("SP: %x\n", a0);
 
-  IO_MUX_GPIO[2] = (1u << 12) | (1u << 8);; // Funkcija 1, 8 je pullup
+  IO_MUX_GPIOn_REG[2] = (1u << 12) | (1u << 8);; // Funkcija 1, 8 je pullup
   TRIS = 0;//1 << 2;
 
-  while(1) {
+  APB_SARADC_INT_ENA_REG = 0xffffffff;
+
+printf("Oh kakav register %X\n", SYSTEM_PERIP_CLK_EN0_REG);
+printf("Interapt za ADC %d\n", INTERRUPT_CORE0_APB_ADC_INT_MAP_REG);
+INTERRUPT_CORE0_APB_ADC_INT_MAP_REG = 3; // adc kacimo na 3
+*((uint32_t*)0x60040000) = 0x580000C0;
+*((uint32_t*)0x60040054) = 0x40400F;
     APB_SARADC_CTRL2_REG = 1u << 24;
-    APB_SARADC_ONETIME_SAMPLE_REG = (1ul < 31) | (1ul << 29) | (2u << 25); // kanal 2 = gpio2
+    APB_SARADC_ONETIME_SAMPLE_REG =  /*0x24000000;//*/  (1ul < 31) | (1ul << 29) | (2u << 25); // kanal 2 = gpio2
+  while(1) {
+    //*((uint32_t*)0x60040010) = 0x20890000;
 
     feed_wdt();
     delay_ms(1000);
-    printf("Ocitao sam %d\n", APB_SARADC_ADC1_DATA);
+
     printf("Vreme %lld\n", get_ticks());
   }
 
