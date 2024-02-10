@@ -3651,8 +3651,8 @@ _bss_start = 0x40059410;
 _bss_table_start = 0x40059410;
 _bss_table_end = 0x40059590;
 
-PROVIDE(printf = 0x40000040); 
-PROVIDE(puts = 0x40000040);
+PROVIDE(printf = ets_printf);
+PROVIDE(puts = ets_printf);
 
 PROVIDE(O       = 0x60004004);
 PROVIDE(SO      = 0x60004008);

@@ -11,15 +11,20 @@ void ir_generic(uint32_t e) {
 
   switch (e) {
     case 2:
-      // Ovo je za example_interrupt()
+      // interrupt_example
       GPIO_STATUS_W1TC_REG = 1 << BTN_PIN; // Upisom 1 u ovaj reg, resetuje se odgovarajuci bit u statusnom registru
       break;
     case 3:
+      // adc_example
       printf("APB_SARADC_INT_RAW_REG : %x\n", APB_SARADC_INT_RAW_REG);
       APB_SARADC_ONETIME_SAMPLE_REG = 0;
       APB_SARADC_INT_CLR_REG = 0xFFFFFFFF;
       printf("Ocitao sam %d %x\n", APB_SARADC_ADC1_DATA, APB_SARADC_INT_RAW_REG);
       break;
+    case 4:
+      // timer_example
+      TIMG0_INT_CLR_TIMERS_REG = 1;
+      TIMG0_T0CONFIG_REG |= 1ul << 10;
   }
 
   printf("Izlaz iz rutine INT %d maskB %x : %x : %x\n", e, CPU_INT_EIP_STATUS_REG, INTR_STATUS_0_REG, get_mstatus());
@@ -86,11 +91,12 @@ static void interrupt_example() {
 // Nije proradilo
 static void adc_example() {
   GPIO_ENABLE_REG = 0; // Svi GPIO imaju funkciju input
+  INTERRUPT_CORE0_CPU_INT_TYPE_REG = 0; // Svi interapti su tipa level (nisu edge)
   INTERRUPT_CORE0_APB_ADC_INT_MAP_REG = 3; // ADC ide na IRQ 3
   INTERRUPT_CORE0_CPU_INT_PRI_n_REG[3] = 15; // Prioritet 15
-  CPU_INT_ENABLE_REG = 1 << 3;
+  INTERRUPT_CORE0_CPU_INT_ENABLE_REG = 1 << 3;
   IO_MUX_GPIOn_REG[2] = (1u << 12) | (1u << 8);; // Funkcija 1 (analog), 8 je pullup
-
+  SYSTEM_PERIP_CLK_EN0_REG |= 1 << 28; // Clock enable
   APB_SARADC_INT_ENA_REG = 0xffffffff; // ADC kontroleru dopusteno da podize IRQ za sta god hoce
 
   *((uint32_t*)0x60040000) = 0x580000C0; // Ovoga nema u DOC
@@ -147,8 +153,8 @@ static void dma_example() {
   desc[1][1] = 0x3fcC0400;
   desc[1][2] = 0;
 
-  SYSTEM_PERIP_CLK_EN1_REG |= 0x40ul;
-  SYSTEM_PERIP_RST_EN1_REG &= ~0x40ul;
+  SYSTEM_PERIP_RST_EN1_REG &= ~0x40ul; // Reset DMA
+  SYSTEM_PERIP_CLK_EN1_REG |= 0x40ul;  // Clock enable
   GDMA_OUT_CONF0_CH0_REG = 1;
   GDMA_OUT_CONF0_CH0_REG = 0;
   GDMA_IN_CONF0_CH0_REG = 1;
@@ -163,7 +169,27 @@ static void dma_example() {
 
   // Sada bi trebalo da su nulti i prvi KB identicni
   rdRAM();
+
+  printf("ROB BSS END: %X\n", _bss_end_ets);
+
   while (1){};
+}
+
+// Interapt na svakih sekund
+static void timer_example() {
+  TIMG0_T0CONFIG_REG = (3ul << 29) | (80ul << 13) | (1ul << 10); // clk / 80 = 1 MHz ????, napred, start, alarm, disabled
+  INTERRUPT_CORE0_CPU_INT_TYPE_REG = 0; // Svi interapti su tipa level (nisu edge)
+  INTERRUPT_CORE0_TG_T0_INT_MAP_REG = 4; // Timer0 na IRQ 4
+  INTERRUPT_CORE0_CPU_INT_PRI_n_REG[4] = 15; // Prioritet 15
+  INTERRUPT_CORE0_CPU_INT_ENABLE_REG = 1 << 4;
+  TIMG0_T0LOADLO_REG = 0; // Pocetna vrednost
+  TIMG0_T0LOADHI_REG = 0;
+  TIMG0_T0LOAD_REG = 0;
+  TIMG0_T0ALARMLO_REG = 1000000; // Postsclaer, 1Mhz -> 1 Hz
+  TIMG0_T0ALARMHI_REG = 0;
+  TIMG0_INT_ENA_TIMERS_REG = 1; // Enable interrupt
+  TIMG0_T0CONFIG_REG |= 1ul << 31;
+  while(1) {};
 }
 
 void start() {
@@ -177,7 +203,8 @@ void start() {
 //  button_example();
 //  interrupt_example();
 //  adc_example();
-  dma_example();
+//  dma_example();
+  timer_example();
 
   for (i = 0; i < 4; i++)
     printf("APB_CTRL_FLASH_ACE_ADDR_REG[%d] = %x sz: %x\n", i, APB_CTRL_FLASH_ACE_ADDR_REG[i], APB_CTRL_FLASH_ACE_SIZE_REG[i]);

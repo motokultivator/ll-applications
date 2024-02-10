@@ -1054,6 +1054,7 @@ extern volatile uint32_t UART_INT_CLR_REG;
 extern volatile uint32_t UART_INT_RAW_REG;
 extern volatile uint32_t APB_SARADC_INT_ENA_REG;
 
+extern uint32_t _bss_end_ets;
 
 uint32_t get_mstatus();
 uintptr_t get_sp();
