@@ -95,17 +95,22 @@ static void adc_example() {
   INTERRUPT_CORE0_APB_ADC_INT_MAP_REG = 3; // ADC ide na IRQ 3
   INTERRUPT_CORE0_CPU_INT_PRI_n_REG[3] = 15; // Prioritet 15
   INTERRUPT_CORE0_CPU_INT_ENABLE_REG = 1 << 3;
-  IO_MUX_GPIOn_REG[2] = (1u << 12) | (1u << 8);; // Funkcija 1 (analog), 8 je pullup
+  IO_MUX_GPIOn_REG[2] = (1u << 12);// | (3u << 8);; // PIN #2, funkcija 1 (analog), 8 je pullup
   SYSTEM_PERIP_CLK_EN0_REG |= 1 << 28; // Clock enable
   APB_SARADC_INT_ENA_REG = 0xffffffff; // ADC kontroleru dopusteno da podize IRQ za sta god hoce
 
+  //APB_SARADC_CTRL2_REG = 1u << 24;
+  //APB_SARADC_ONETIME_SAMPLE_REG = (1ul < 31) | (1ul << 29) | (2u << 25); // kanal 2 = gpio2
+  APB_SARADC_ONETIME_SAMPLE_REG = 1ul << 31; // ADC 1 sel
+  APB_SARADC_ONETIME_SAMPLE_REG |= (2ul << 25); // Chan #2 == PIN 2
+  APB_SARADC_ONETIME_SAMPLE_REG |= 1ul << 29; // Start
   *((uint32_t*)0x60040000) = 0x580000C0; // Ovoga nema u DOC
   *((uint32_t*)0x60040054) = 0x40400F;
 
-  APB_SARADC_CTRL2_REG = 1u << 24;
-  APB_SARADC_ONETIME_SAMPLE_REG = (1ul < 31) | (1ul << 29) | (2u << 25); // kanal 2 = gpio2
   while(1) {
+    APB_SARADC_ONETIME_SAMPLE_REG |= 1ul << 29; // Start
     delay_ms(1000);
+    printf("Ocitao sam %d %x\n", APB_SARADC_ADC1_DATA, APB_SARADC_INT_RAW_REG);
     printf("Vreme %lld\n", get_ticks());
   }
 }
@@ -192,6 +197,22 @@ static void timer_example() {
   while(1) {};
 }
 
+// WIP
+static void i2s_example() {
+  // pg. 715
+  I2S_TX_CLKM_CONF_REG = (0ul << 27) | (1ul << 26) | (1ul << 29) | (255ul); // in=40 MHz, clk active, clk en, out= ~40KHz
+  I2S_RX_CLKM_CONF_REG = 0;
+  // TODO Konfigurisati pinove
+  I2S_TX_CONF_REG = (0ul << 3) | (1ul << 19) | (1ul << 7) | (0ul << 12); // Master mode, TDM, BE, no comp,
+  I2S_TX_CONF1_REG = (15ul << 13); // 16 bit, videti jos za kontrolu signala
+  I2S_TX_TDM_CTRL_REG = (1ul << 16) | (3ul); // Stereo, en
+  I2S_TX_CONF_REG |= (1ul << 8); // Update req
+  I2S_TX_CONF_REG |= 3; // Reset req
+  I2S_INT_ENA_REG = 2; // Enable INT
+  // TODO set DMA
+  I2S_TX_CONF_REG |= 4; // Start
+}
+
 void start() {
   uint32_t p, t;
   uint32_t i;
@@ -202,9 +223,9 @@ void start() {
 //  blink_example();
 //  button_example();
 //  interrupt_example();
-//  adc_example();
+  adc_example();
 //  dma_example();
-  timer_example();
+//  timer_example();
 
   for (i = 0; i < 4; i++)
     printf("APB_CTRL_FLASH_ACE_ADDR_REG[%d] = %x sz: %x\n", i, APB_CTRL_FLASH_ACE_ADDR_REG[i], APB_CTRL_FLASH_ACE_SIZE_REG[i]);
