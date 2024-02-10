@@ -162,6 +162,7 @@ j delay_us
 _start:
 csrci mstatus, 8
 
+# Set clock to 160 MHz
 la t0, SYSTEM_CPU_PER_CONF_REG
 lw a0, 0(t0)
 andi a0, a0, -4
@@ -177,6 +178,7 @@ li a0, 160
 la a1, ets_update_cpu_frequency
 jalr a1
 
+# Disable WDTs
 la t0, TIMG0_REGCLK_REG
 li a0, 0xdfffffff
 sw a0, 0(t0)
@@ -199,6 +201,7 @@ la t1, RTC_CNTL_SW_CPU_STALL_REG
 sw zero, 0(t1)
 sw zero, 0(t0)
 
+# Podesavenje addrese IVT
 la t0, ivt
 ori t0, t0, 1
 csrw mtvec, t0
@@ -206,7 +209,8 @@ fence
 csrsi mstatus, 8
 mv a0, sp
 jal start
-_hlt:
+
+_hlt: # Ovo je fatal exception, iz ovoga se ne izlazi
 la a0, fatal_str
 csrr a1, mcause
 la a2, printf
